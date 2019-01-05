@@ -1,3 +1,4 @@
+import csv
 import getopt
 import math
 import sys
@@ -23,60 +24,60 @@ def mean(numbers):
 def stdev(numbers):
     avg = mean(numbers)
     strddev = sum([pow(x - avg, 2) for x in numbers]) / float(len(numbers) - 1)
-    return strddev
+    return math.sqrt(strddev)
 
 
 def summarize(dataset):
-    summaries = [(mean(attribute), stdev(attribute)) for attribute in zip(*dataset)]
-    del summaries[:1]
-    return summaries
+    summary = [(mean(attribute), stdev(attribute)) for attribute in zip(*dataset)]
+    del summary[:1]
+    return summary
 
 
 def prior(dataset):
     test1 = data[:, 0:1]
     test2 = test1.tolist()
-    number_A = test2.count([1.0])
-    number_B = len(data) - number_A
-    prior_A = number_A / len(data)
-    prior_B = number_B / len(data)
-    return (prior_A, prior_B)
+    number_a = test2.count([1.0])
+    number_b = len(data) - number_a
+    prior_a = number_a / len(data)
+    prior_b = number_b / len(data)
+    return prior_a, prior_b
 
 
-def summarizeByClass(dataset):
+def summarize_by_class(dataset):
     separated = separate_by_class(dataset)
-    summaries = {}
+    summary = {}
     for classValue, instances in separated.items():
-        summaries[classValue] = summarize(instances)
-    return summaries
+        summary[classValue] = summarize(instances)
+    return summary
 
 
-def calculateProbability(x, mean, stdev):
+def calculate_probability(x, mean, stdev):
     exponent = math.exp(-(math.pow(x - mean, 2) / (2 * math.pow(stdev, 2))))
     return (1 / (math.sqrt(2 * math.pi) * stdev)) * exponent
 
 
-def calculateClassProbabilities(summaries, inputVector):
+def calculate_class_probabilities(summaries, input_vector):
     probabilities = {}
     for classValue, classSummaries in summaries.items():
         probabilities[classValue] = 1
         for i in range(len(classSummaries)):
             mean, stdev = classSummaries[i]
-            x = inputVector[i + 1]
-            probabilities[classValue] *= calculateProbability(x, mean, stdev)
+            x = input_vector[i + 1]
+            probabilities[classValue] *= calculate_probability(x, mean, stdev)
     return probabilities
 
 
-def predict(summaries, inputVector):
-    probabilities = calculateClassProbabilities(summaries, inputVector)
-    bestLabel, bestProb = None, -1
+def predict(summaries, input_vector):
+    probabilities = calculate_class_probabilities(summaries, input_vector)
+    best_label, best_prob = None, -1
     for classValue, probability in probabilities.items():
-        if bestLabel is None or probability > bestProb:
-            bestProb = probability
-            bestLabel = classValue
-    return bestLabel
+        if best_label is None or probability > best_prob:
+            best_prob = probability
+            best_label = classValue
+    return best_label
 
 
-def getPredictions(summaries, testSet):
+def get_predictions(summaries, testSet):
     predictions = []
     for i in range(len(testSet)):
         result = predict(summaries, testSet[i])
@@ -84,25 +85,39 @@ def getPredictions(summaries, testSet):
     return predictions
 
 
-def getAccuracy(testSet, predictions):
+def get_accuracy(test_set, predictions):
     miss_class = 0
-    for i in range(len(testSet)):
-        if testSet[i][0] != predictions[i]:
+    for i in range(len(test_set)):
+        if test_set[i][0] != predictions[i]:
             miss_class += 1
 
-    return (miss_class)
+    return miss_class
+
+
+def write_data(row1, row2, row3, filename):
+    with open(filename, 'w', newline='') as outfile:
+        output_file = csv.writer(outfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        line = []
+        for value in row1:
+            line.append(value)
+        output_file.writerow(line)
+        line = []
+        for value in row2:
+            line.append(value)
+        output_file.writerow(line)
+        output_file.writerow(row3)
+        print("Output file written in " + filename)
 
 
 if __name__ == '__main__':
     argv = sys.argv[1:]
-    iter_req = 0
     outputfile = ""
     inputfile = ""
     if argv.__len__() != 0:
         try:
-            opts, args = getopt.getopt(argv, "hit:o:", ["data=", "output=", "iter="])
+            opts, args = getopt.getopt(argv, "h:i:o:", ["data=", "output="])
         except getopt.GetoptError:
-            print('usage: perceptron.py -i||--data <inputfile> -o||--output <outputfile>')
+            print('usage: Naive_bayes.py -i||--data <inputfile> -o||--output <outputfile>')
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
@@ -116,8 +131,6 @@ if __name__ == '__main__':
                 outputfile = arg
                 if '.tsv' not in outputfile:
                     outputfile = outputfile + '.tsv'
-            elif opt in ('-t', "--iter"):
-                iter_req = int(arg)
     else:
         inputfile = input("Enter data file name: ")
         if '.tsv' not in inputfile:
@@ -138,7 +151,22 @@ if __name__ == '__main__':
     data["Class"] = np.where(data["Class"] == 'A', 1, 0)
     data = data.values
     prior_Prob = prior(data)
-    summaries = summarizeByClass(data)
-    predictions = getPredictions(summaries, data)
-    missclass = getAccuracy(data, predictions)
-    print(prior_Prob, summaries, missclass)
+    summaries = summarize_by_class(data)
+    predictions = get_predictions(summaries, data)
+    missclass = get_accuracy(data, predictions)
+    row1 = []
+    row2 = []
+    row1.append(summaries[1.0][0][0])
+    row1.append(math.pow(summaries[1.0][0][1], 2))
+    row1.append(summaries[1.0][1][0])
+    row1.append(math.pow(summaries[1.0][1][1], 2))
+    row1.append(prior_Prob[0])
+    print(row1)
+    row2.append(summaries[0.0][0][0])
+    row2.append(math.pow(summaries[0.0][0][1], 2))
+    row2.append(summaries[0.0][1][0])
+    row2.append(math.pow(summaries[0.0][1][1], 2))
+    row2.append(prior_Prob[1])
+    print(row2)
+    print(missclass)
+    write_data(row1, row2, [missclass], outputfile)
